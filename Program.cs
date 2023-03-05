@@ -48,12 +48,14 @@ namespace SpiridonoMD
                     }
                     transaction.Commit(); //применяем изменения
                     sw.Stop();
-                    Console.WriteLine(sw.Elapsed);
+                    //Console.WriteLine(sw.Elapsed);
+                    
                 }
             }
-            Console.Read();
+            //Console.Read();
+
         }
-        static void Create(int a)
+        static void Create()
         {
             command = new SQLiteCommand(connection)
             {
@@ -61,18 +63,17 @@ namespace SpiridonoMD
             };
             command.ExecuteNonQuery();
             Console.WriteLine("Таблица создана");
-
-            command = new SQLiteCommand(connection)
-            {
-                CommandText = "DELETE FROM [Person]"
-            };
-            command.ExecuteNonQuery();
-
+        }
+        static void insert(long a)
+        {
+            command = new SQLiteCommand(connection);
             command.CommandText = "INSERT INTO Person (ФИО, ДатаРождения, Пол) VALUES (:name, :date, :sex)";
             try
-            {
-                for (int i = 1; i < a; i++)
+            { 
+                transaction = connection.BeginTransaction();//запускаем транзакцию
+                for (int i = 0; i < a; i++)
                 {
+                   
                     //создание имени
                     string[] consonants = { "b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "l", "n", "p", "q", "r", "s", "sh", "zh", "t", "v", "w", "x" };
                     string[] vowels = { "a", "e", "i", "o", "u", "ae", "y" };
@@ -101,6 +102,7 @@ namespace SpiridonoMD
                     command.Parameters.AddWithValue("sex", Pol);
                     command.ExecuteNonQuery();
                 }
+                transaction.Commit(); //применяем изменения
             }
             catch
             {
@@ -108,117 +110,143 @@ namespace SpiridonoMD
             }
         }
 
+
         static void Main(string[] args)
         {
-            Stopwatch sw = new Stopwatch();
-            //удаление переполения
-
-            string param;
             if (Connect("firstBase.sqlite"))
             {
+                Stopwatch sw = new Stopwatch();
+                foreach (var arg in args)
+                {
+                    switch (arg)
+                    {
+                        case "1":
+                            Create();
+                            break;
 
-                Console.Write("Ввеедите команду: ");
-                param = Console.ReadLine();
-                if (param == "myApp 1")
-                {
-                    Create(50);
-                    View();
-                }
-                else if (param == "myApp 2")
-                {
-                    Create(50);
-                    //добавление
-                    command.CommandText = "INSERT INTO Person (ФИО, ДатаРождения, Пол) VALUES (:name, :date, :sex)";
-                    transaction = connection.BeginTransaction();//запускаем транзакцию
-                    try
-                    {
-                        string name, date, pol;
-                        Console.Write("Введите ФИО: ");
-                        name = Console.ReadLine();
-                        Console.Write("Введите Дату рождения: ");
-                        date = Console.ReadLine();
-                        Console.Write("Введите Пол: ");
-                        pol = Console.ReadLine();
-                        command.Parameters.AddWithValue("name", name);
-                        command.Parameters.AddWithValue("date", date);
-                        command.Parameters.AddWithValue("sex", pol);
-                        command.ExecuteNonQuery();
-                        transaction.Commit(); //применяем изменения
-                        sw.Stop();
-                        //Console.WriteLine(sw.Elapsed);
-                        View();
-                    }
-                    catch
-                    {
-                        //transaction.Rollback(); //откатываем изменения, если произошла ошибка
-                        throw;
-                    }
-                    sw.Restart();
-                }
-                else if (param == "myApp 3")
-                {
-                    Create(50);
-                    transaction = connection.BeginTransaction();//запускаем транзакцию
-                    string sqlExpression = "SELECT ФИО, ДатаРождения, Пол, (strftime('%Y', 'now') - strftime('%Y', ДатаРождения)) - (strftime('%m-%d', 'now') < strftime('%m-%d', ДатаРождения)) AS `age` FROM Person group by ФИО";
-                    command = new SQLiteCommand(sqlExpression, connection);
-                    using (SQLiteDataReader reader = command.ExecuteReader())
-                    {
-                        if (reader.HasRows) // если есть данные
-                        {
-                            while (reader.Read())   // построчно считываем данные
+                        case "2":
+                            //добавление
+                            command = new SQLiteCommand(connection);
+                            command.CommandText = "INSERT INTO Person (ФИО, ДатаРождения, Пол) VALUES (:name, :date, :sex)";
+                            DateTime dDate;
+                            if (DateTime.TryParse(args[2], out dDate))
                             {
-                                var FIO = reader.GetValue(0);
-                                var Date = reader.GetValue(1);
-                                var Pol = reader.GetValue(2);
-                                var age = reader.GetValue(3);
-                                Console.WriteLine($"{FIO} \t {Date} \t {Pol} \t {age}");
+                                //string.Format("{0:yyyy/MM/dd}", dDate);
+                                if ((args[3] == "мужской") || (args[3] == "женский") || (args[3] == "Мужской") || (args[3] == "Женский"))
+                                {
+                                    transaction = connection.BeginTransaction();//запускаем транзакцию
+                                    command.Parameters.AddWithValue("name", args[1]);
+                                    command.Parameters.AddWithValue("date", args[2]);
+                                    command.Parameters.AddWithValue("sex", args[3]);
+                                    command.ExecuteNonQuery();
+                                    transaction.Commit(); //применяем изменения
+                                    View();
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Неверный пол");
+                                }
+                               
                             }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Данных нет");
-                        }
-                        transaction.Commit(); //применяем изменения
-                        sw.Stop();
-                        Console.WriteLine(sw.Elapsed);
-                    }
-                    Console.Read();
-                }
-                else if (param == "myApp 4")
-                {
-                    Create(1000000);//очень долгий вывод данных для поверки использовал 10000
-                    View();
-                }
-                else if (param == "myApp 5")
-                {
-                    Create(50);
-                    transaction = connection.BeginTransaction();//запускаем транзакцию
-                    string sqlExpression = "SELECT * FROM Person Where ФИО Like 'F%' AND Пол = 'мужской'";
-                    command = new SQLiteCommand(sqlExpression, connection);
-                    using (SQLiteDataReader reader = command.ExecuteReader())
-                    {
-                        if (reader.HasRows) // если есть данные
-                        {
-                            while (reader.Read())   // построчно считываем данные
+                            else
                             {
-                                var FIO = reader.GetValue(0);
-                                var Date = reader.GetValue(1);
-                                var Pol = reader.GetValue(2);
-                                Console.WriteLine($"{FIO} \t {Date} \t {Pol}");
+                                Console.WriteLine("Неверная дата");
                             }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Данных нет");
-                        }
-                        transaction.Commit(); //применяем изменения
-                        sw.Stop();
-                        Console.WriteLine(sw.Elapsed);
-                    }
-                    Console.Read();
+                            break;
+
+                        case "3":
+                            string sqlExpression = "SELECT ФИО, SUBSTR(ДатаРождения,1,10), Пол, (strftime('%Y', 'now') - strftime('%Y', ДатаРождения)) - (strftime('%m-%d', 'now') < strftime('%m-%d', ДатаРождения)) AS `age` FROM Person group by ФИО";
+                            command = new SQLiteCommand(sqlExpression, connection);
+                            using (SQLiteDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.HasRows) // если есть данные
+                                {
+                                    while (reader.Read())   // построчно считываем данные
+                                    {
+                                        var FIO = reader.GetValue(0);
+                                        var Date = reader.GetValue(1);
+                                        var Pol = reader.GetValue(2);
+                                        var age = reader.GetValue(3);
+                                        Console.WriteLine($"{FIO} \t {Date} \t {Pol} \t {age}");
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Данных нет");
+                                }
+                            }
+                            break;
+
+                        case "4":
+                            sw.Start();
+                            insert(1000000);
+                            sw.Stop();
+                            Console.WriteLine("Время выполнения добавления 1000000 строк" + sw.Elapsed);
+                            break;
+
+                        //очитка таблицы БД
+                        case "6":
+                            command = new SQLiteCommand(connection)
+                            {
+                                CommandText = "DELETE FROM Person"
+                            };
+                            command.ExecuteNonQuery();
+                            break;
+                        case "7":
+                            string SQlExpression = "SELECT count(*) FROM Person";
+                            command = new SQLiteCommand(SQlExpression, connection);
+                            using (SQLiteDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.HasRows) // если есть данные
+                                {
+
+                                    while (reader.Read())   // построчно считываем данные
+                                    {
+                                        var FIO = reader.GetValue(0);
+                                        Console.WriteLine(FIO);
+                                    }
+                                }
+                            }
+                            command.ExecuteNonQuery();
+                            break;
+                            
+                        case "5":
+                            /*
+                            command = new SQLiteCommand(connection)
+                            {
+                                CommandText = "CREATE INDEX IF NOT EXISTS PersonIndex ON Person (ФИО, Пол);"
+                            };
+                            command.ExecuteNonQuery();
+                            */
+
+                            sw.Start();
+                            string SqlExpression = "SELECT  ФИО, SUBSTR(ДатаРождения,1,10), Пол FROM Person Where ФИО Like 'F%' AND Пол = 'мужской'";
+                            command = new SQLiteCommand(SqlExpression, connection);
+                            using (SQLiteDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.HasRows) // если есть данные
+                                {
+                                    while (reader.Read())   // построчно считываем данные
+                                    {
+                                        var FIO = reader.GetValue(0);
+                                        var Date = reader.GetValue(1);
+                                        var Pol = reader.GetValue(2);
+                                        Console.WriteLine($"{FIO} \t {Date} \t {Pol}");
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Данных нет");
+                                }
+                                sw.Stop();
+                                Console.WriteLine("Время выполнения запроса: "+sw.Elapsed);
+                            }
+                            Console.Read();
+                            break;
+                    }                  
                 }
             }
-        }
+        }        
     }
     
 }
